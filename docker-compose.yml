@@ -1,0 +1,56 @@
+name: compliance-app
+
+services:
+  compliance-db:
+    image: postgres:16
+    restart: unless-stopped
+    env_file:
+      - ./env/compliance/db_${RTE:-dev}.env
+    volumes:
+      - compliance_db_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - internal_net
+
+  compliance-app:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./env/compliance/app_${RTE:-dev}.env
+    environment:
+      - RTE=${RTE:-dev}
+    volumes:
+      - ./:/var/www/html
+      - compliance_node_modules:/var/www/html/node_modules
+    depends_on:
+      - compliance-db
+    networks:
+      - internal_net
+    ports:
+      - "5173:5173"
+
+  compliance-nginx:
+    build:
+      context: docker/nginx
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - RTE=${RTE:-dev}
+    volumes:
+      - ./:/var/www/html:ro
+    depends_on:
+      - compliance-app
+    networks:
+      - internal_net
+    ports:
+      - "80:80"
+
+volumes:
+  compliance_db_data:
+  compliance_node_modules:
+
+networks:
+  internal_net:
